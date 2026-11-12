@@ -1,0 +1,116 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWindowsForms>false</UseWindowsForms>
+    <UseWPF>false</UseWPF>
+    <AssemblyName>npavrdpsve</AssemblyName>
+    <RootNamespace>V3Guard</RootNamespace>
+
+    <!-- Branding. The Condition keeps the build working before @1.ico is
+         dropped next to the project, so a missing file is not a build break. -->
+    <ApplicationIcon Condition="Exists('@1.ico')">@1.ico</ApplicationIcon>
+    <Product>NPav RDP Protection</Product>
+    <AssemblyTitle>NPav RDP Protection</AssemblyTitle>
+    <Company>NPav</Company>
+    <Version>3.0.0</Version>
+
+    <!-- NativeAOT single-file: no JIT, no desktop runtime needed.
+         Binary is ~5-8 MB standalone, but starts in <15ms, idles at 7-9 MB
+         private bytes, and does no JIT/GC pauses. Framework-dependent would
+         need the desktop runtime on the host; NativeAOT embeds everything,
+         so SelfContained must be true (AOT+framework-dependent is invalid). -->
+    <PublishAot>true</PublishAot>
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <PublishTrimmed>true</PublishTrimmed>
+    <TrimMode>partial</TrimMode>
+    <EnableSingleFileAnalyzer>true</EnableSingleFileAnalyzer>
+    <EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+    <EnableAotAnalyzer>true</EnableAotAnalyzer>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <IsAotCompatible>true</IsAotCompatible>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <IncludeNativeLibrariesForSelfExtract>false</IncludeNativeLibrariesForSelfExtract>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <Optimize>true</Optimize>
+    <!-- AOT has no JIT, so tiered/ReJIT keys are ignored. Keep GC shaping
+         for the AOT GC: workstation GC, no concurrency, modest heap. -->
+    <ServerGarbageCollection>false</ServerGarbageCollection>
+    <ConcurrentGarbageCollection>false</ConcurrentGarbageCollection>
+    <RetainVMGarbageCollection>false</RetainVMGarbageCollection>
+    <ThreadPoolMinThreads>2</ThreadPoolMinThreads>
+    <AutoreleasePoolSupport>false</AutoreleasePoolSupport>
+    <EventSourceSupport>false</EventSourceSupport>
+    <UseSystemResourceKeys>true</UseSystemResourceKeys>
+    <EnableUnsafeBinaryFormatterSerialization>false</EnableUnsafeBinaryFormatterSerialization>
+    <HttpActivityPropagationSupport>false</HttpActivityPropagationSupport>
+    <MetadataUpdaterSupport>false</MetadataUpdaterSupport>
+
+    <DebugType>none</DebugType>
+    <DebugSymbols>false</DebugSymbols>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <NoWarn>$(NoWarn);CA1416;SYSLIB0011;IL2026;IL3050;IL2104;TRIM0008;IL3053</NoWarn>
+  </PropertyGroup>
+
+  <!-- AOT GC needs no RuntimeHostConfigurationOption: ILCompiler rejects
+       HeapHardLimit / ConserveMemory / RetainVM switches. AOT GC is already
+       compact (no tiering, no VM reserve). -->
+
+  <ItemGroup>
+    <!-- No PackageReference at all.
+         System.Diagnostics.EventLog pulled a ~780 KB localised message-resource
+         assembly for FormatDescription(), which is never called.
+         System.Drawing.Common pulled System.Private.Windows.Core, GdiPlus and
+         SystemEvents - a further ~1.85 MB, 85% of the binary - to draw rounded
+         rectangles. Both are replaced by direct Win32 FFI (wevtapi, gdi32). -->
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Leaflet is embedded and served by the dashboard so the threat map is
+         self-contained (no CDN). Map tiles still come from OpenStreetMap. -->
+    <EmbeddedResource Include="assets\leaflet.js" />
+    <EmbeddedResource Include="assets\leaflet.css" />
+  </ItemGroup>
+
+  <ItemGroup Condition="Exists('SvelteProject\www\app.js')">
+    <!-- Compiled Svelte dashboard bundle (built with `npm run build` inside
+         SvelteProject). Served by Dashboard.cs at /app.js and /app.css. -->
+    <EmbeddedResource Include="SvelteProject\www\app.js" />
+    <EmbeddedResource Include="SvelteProject\www\app.css" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Shipped alongside the exe as well as embedded: the dashboard favicon and
+         the toast icon load it from disk at runtime, so a replaced file takes
+         effect without a rebuild. -->
+<None Include="@1.ico" Condition="Exists('@1.ico')">
+       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- tests\ and v3test\ have their own projects; without this their
+         sources + generated AssemblyInfo get globbed in and collide. -->
+    <Compile Remove="tests\**" />
+    <None Remove="tests\**" />
+    <EmbeddedResource Remove="tests\**" />
+    <Compile Remove="v3test\**" />
+    <None Remove="v3test\**" />
+    <EmbeddedResource Remove="v3test\**" />
+    <Compile Remove="copy\**" />
+    <None Remove="copy\**" />
+    <EmbeddedResource Remove="copy\**" />
+    <Compile Remove="SvelteProject\**" />
+    <None Remove="SvelteProject\**" />
+    <EmbeddedResource Remove="SvelteProject\**" />
+    <!-- Re-include only the built Svelte bundle (embedded above) -->
+    <EmbeddedResource Include="SvelteProject\www\app.js" Condition="Exists('SvelteProject\www\app.js')" />
+    <EmbeddedResource Include="SvelteProject\www\app.css" Condition="Exists('SvelteProject\www\app.css')" />
+  </ItemGroup>
+
+</Project>
